@@ -106,7 +106,8 @@ struct thread
 
     //process_exec() <- thread_exit(): exit code
     struct thread* parent;
-    struct semaphore childexit;
+    struct semaphore childwaitstart;
+    struct semaphore childwaitend;
 
     //this is for rule 2
     bool rule2;

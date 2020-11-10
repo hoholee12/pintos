@@ -49,7 +49,7 @@ process_execute (const char *file_name)
   //wait until child exits: for exec-missing
   struct thread* cur = thread_current();
 
-  sema_down(&cur->childexit);
+  sema_down(&cur->childwaitstart);
 
   //find newborn child
   //one child per thread
@@ -66,14 +66,13 @@ process_execute (const char *file_name)
   //wait <- exec
   else if(newborn->exit_code == -1) tid = -1;
 
+  sema_up(&cur->childwaitend);
 
-  //get any pending -1s and wait
-  struct thread* pending;
+
+  //check for any pending -1s.
   for (e = &thread_current()->allelem; e->next != NULL; e = list_next (e)){
-      pending = list_entry (e, struct thread, allelem);
-      if(pending->exit_code == -1) {
-        return process_wait(-1);
-      }
+      newborn = list_entry (e, struct thread, allelem);
+      if(newborn->exit_code == -1) return process_wait(newborn->tid);
   }
 
   return tid;
@@ -134,6 +133,12 @@ process_wait (tid_t child_tid)
       if(cur->tid == child_tid) break;
   }
 
+  
+
+  //use two sems to capture exit code in just right time from process_wait
+
+  int exitcode = cur->exit_code;
+
   //rules
   /*
   1. pid does not refer to a direct child of the calling process. pid is a direct child
@@ -141,8 +146,7 @@ process_wait (tid_t child_tid)
   value from a successful call to exec.
   */
   if(cur->tid != child_tid) {
-    cur->exit_code = -1;
-    return -1;
+    exitcode = -1;
   }
   /*
   2. The process that calls wait has already called wait on pid. That is, a process
@@ -153,14 +157,8 @@ process_wait (tid_t child_tid)
     cur->rule2 = true;
   }
   else {
-    cur->exit_code = -1;
-    return -1;
+    exitcode = -1;
   }
-
-  //use two sems to capture exit code in just right time from process_wait
-  sema_down(&cur->waitstart);
-
-  int exitcode = cur->exit_code;
 
   //release exit
   sema_up(&cur->waitend);

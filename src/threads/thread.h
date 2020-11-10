@@ -81,6 +81,16 @@ typedef int tid_t;
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
 #include"threads/synch.h"
+struct process{
+   //proj2
+    //It is better not to set an arbitrary limit. You may impose a limit of 128 open
+    //files per process, if necessary.
+    struct file* openfds[128];
+    struct semaphore lock_fd;
+
+    int child_count; //thread count
+};
+
 struct thread
   {
     /* Owned by thread.c. */
@@ -113,14 +123,10 @@ struct thread
     
     int exit_code;
     
-
-     //proj2
-    //It is better not to set an arbitrary limit. You may impose a limit of 128 open
-    //files per process, if necessary.
-    struct file* openfds[128];
-    
     //myself(executable)
     struct file* myself;
+
+    struct process* super_parent;
 
     
     /* Owned by thread.c. */
@@ -131,6 +137,7 @@ struct thread
   //proj2
 int insertfd(struct thread* cur, struct file* fp);
 struct file* fdtofp(struct thread* cur, int fd);
+void deletefd(struct thread* cur, int fd);
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.

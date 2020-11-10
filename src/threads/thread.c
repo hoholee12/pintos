@@ -71,20 +71,21 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+
 //proj2
 //insert 
 int insertfd(struct thread* cur, struct file* fp){
   int i = 2;
   //keep looping until empty slot found
-  for(; i < 128 && cur->super_parent->openfds[i]; i++);
+  for(; i < 128 && cur->openfds[i]; i++);
 
   //full
   if(i == 128) return -1;
   //insert
   else{
-    sema_down(&cur->super_parent->lock_fd);
-    cur->super_parent->openfds[i] = fp;
-    sema_up(&cur->super_parent->lock_fd);
+    sema_down(&cur->lock_fd);
+    cur->openfds[i] = fp;
+    sema_up(&cur->lock_fd);
     return i;
   }
 }
@@ -93,13 +94,13 @@ struct file* fdtofp(struct thread* cur, int fd){
   //no stdin stdout
   if(fd < 2) return -1;
   //get fp
-  else return cur->super_parent->openfds[fd];
+  else return cur->openfds[fd];
 }
 void deletefd(struct thread* cur, int fd){
   //make sure to file_close before delete!!
-  sema_down(&cur->super_parent->lock_fd);
-  cur->super_parent->openfds[fd] = NULL;
-  sema_up(&cur->super_parent->lock_fd);
+  sema_down(&cur->lock_fd);
+  cur->openfds[fd] = NULL;
+  sema_up(&cur->lock_fd);
 }
 
 /* Initializes the threading system by transforming the code
@@ -219,17 +220,7 @@ thread_create (const char *name, int priority,
   sema_init(&t->waitstart, 0);
   sema_init(&t->waitend, 0);
   sema_init(&t->parent->childexit, 0);
-  //create superparent if there is none(first thread)
-  if(!t->parent->super_parent){
-    t->parent->super_parent = malloc(sizeof(struct process));
-    sema_init(&t->parent->super_parent->lock_fd, 1);
-    t->parent->super_parent->child_count = -1;
-  }
-  t->super_parent = t->parent->super_parent;
-  //insert child
-  t->super_parent->child_count++;
-  
-
+  sema_init(&t->lock_fd, 1);
   /*if(t->tid > 100){
     t->exit_code = -1;
     return -1;
@@ -337,17 +328,12 @@ thread_exit (void)
   //printf("in thread exit: thread: %d exit: %d\n", cur->tid, cur->exit_code);
   //release
 
-  //remove child
-  cur->super_parent->child_count--;
-
-  //if parent
+  //oom fix
   //close all opened files
-  if(cur->super_parent->child_count == 0){
-    for(int i = 2; i < 128; i++){
-      if(cur->super_parent->openfds[i]){
-        //syscall close()
-        close(i);
-      }
+  for(int i = 2; i < 128; i++){
+    if(cur->openfds[i]){
+      //syscall close()
+      close(i);
     }
   }
 

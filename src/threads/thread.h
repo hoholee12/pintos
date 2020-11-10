@@ -123,6 +123,8 @@ struct thread
     //myself(executable)
     struct file* myself;
 
+    bool fail;
+
     
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */

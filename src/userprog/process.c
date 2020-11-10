@@ -41,14 +41,7 @@ process_execute (const char *file_name)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
 
-  //find newborn child
-  struct thread* newborn;
-  struct list_elem *e;
-  for (e = &thread_current()->allelem; e->next != NULL; e = list_next (e)){
-      newborn = list_entry (e, struct thread, allelem);
-      if(newborn->tid == tid) break;
-  }
-  
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
 
@@ -57,13 +50,31 @@ process_execute (const char *file_name)
   struct thread* cur = thread_current();
 
   sema_down(&cur->childexit);
+
+  //find newborn child
+  //one child per thread
+  struct thread* newborn;
+  struct list_elem *e;
+  for (e = &thread_current()->allelem; e->next != NULL; e = list_next (e)){
+      newborn = list_entry (e, struct thread, allelem);
+      if(newborn->tid == tid) break;
+  }
+  
   
   //exec
   if(cur->exit_code == -1) tid = -1;
   //wait <- exec
   else if(newborn->exit_code == -1) tid = -1;
 
-  
+
+  //get any pending -1s and wait
+  struct thread* pending;
+  for (e = &thread_current()->allelem; e->next != NULL; e = list_next (e)){
+      pending = list_entry (e, struct thread, allelem);
+      if(pending->exit_code == -1) {
+        return process_wait(-1);
+      }
+  }
 
   return tid;
 }

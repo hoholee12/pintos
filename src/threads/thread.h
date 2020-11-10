@@ -80,7 +80,7 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list. */
-
+#include"threads/synch.h"
 struct thread
   {
     /* Owned by thread.c. */
@@ -100,16 +100,19 @@ struct thread
     
 #endif
     
-    //this is for main wait
-    struct semaphore* waitme;
+    //process_wait() <- process_exec()
+    struct semaphore waitstart;
+    struct semaphore waitend;
+
+    //process_exec() <- thread_exit(): exit code
+    struct thread* parent;
+    struct semaphore childexit;
+
     //this is for rule 2
     bool rule2;
-    //explicit exit code save
-    struct semaphore* exitwait;
+    
     int exit_code;
-    //wait till child exit: for exec-missing
-    struct thread* parent;
-    struct semaphore* childexit;
+    
 
      //proj2
     //It is better not to set an arbitrary limit. You may impose a limit of 128 open

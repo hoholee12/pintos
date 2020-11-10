@@ -50,15 +50,6 @@ sema_init (struct semaphore *sema, unsigned value)
   list_init (&sema->waiters);
 }
 
-//proj1
-//workaround without copying the whole definition to .h
-//and it will probably prevent deadlocking due to stack clear
-void* sema_malloc(unsigned value){
-  struct semaphore* temp = malloc(sizeof(struct semaphore));
-  sema_init(temp, value);
-  return temp;
-}
-
 /* Down or "P" operation on a semaphore.  Waits for SEMA's value
    to become positive and then atomically decrements it.
 

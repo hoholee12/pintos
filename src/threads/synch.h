@@ -17,9 +17,6 @@ bool sema_try_down (struct semaphore *);
 void sema_up (struct semaphore *);
 void sema_self_test (void);
 
-//hacks
-void* sema_malloc(unsigned value);
-
 /* Lock. */
 struct lock 
   {

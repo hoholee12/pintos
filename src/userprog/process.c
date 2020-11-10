@@ -56,8 +56,7 @@ process_execute (const char *file_name)
   //wait until child exits: for exec-missing
   struct thread* cur = thread_current();
 
-  if(cur->childexit == NULL) cur->childexit = sema_malloc(0);
-  sema_down(cur->childexit);
+  sema_down(&cur->childexit);
   
   //exec
   if(cur->exit_code == -1) tid = -1;
@@ -148,14 +147,12 @@ process_wait (tid_t child_tid)
   }
 
   //use two sems to capture exit code in just right time from process_wait
-  if(cur->waitme == NULL) cur->waitme = sema_malloc(0);
-  sema_down(cur->waitme);
+  sema_down(&cur->waitstart);
 
   int exitcode = cur->exit_code;
 
   //release exit
-  if(cur->exitwait == NULL) cur->exitwait = sema_malloc(0);
-  sema_up(cur->exitwait);
+  sema_up(&cur->waitend);
 
   return exitcode;
 }

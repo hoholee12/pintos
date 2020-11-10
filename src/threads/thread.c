@@ -213,6 +213,9 @@ thread_create (const char *name, int priority,
   tid = t->tid = allocate_tid ();
   //proj2
   t->parent = thread_current();
+  sema_init(&t->waitstart, 0);
+  sema_init(&t->waitend, 0);
+  sema_init(&t->parent->childexit, 0);
   /*if(t->tid > 100){
     t->exit_code = -1;
     return -1;
@@ -333,31 +336,20 @@ thread_exit (void)
   file_close(cur->myself);
 
   //wait until child exits
-  if(cur->parent->childexit == NULL) cur->parent->childexit = sema_malloc(0);
-  sema_up(cur->parent->childexit);
+  sema_up(&cur->parent->childexit);
   
   //use two sems to capture exit code in just right time from process_wait
-  if(cur->waitme == NULL) cur->waitme = sema_malloc(0);
-  sema_up(cur->waitme);
+  sema_up(&cur->waitstart);
 
-  if(cur->exitwait == NULL) cur->exitwait = sema_malloc(0);
-  sema_down(cur->exitwait);
+  sema_down(&cur->waitend);
 
-
-  
-
-  //oom fix
-  //cleanup malloc'd semaphores
-  free(cur->childexit);
-  free(cur->waitme);
-  free(cur->exitwait);
 
   
 
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
-  //process_exit ();
+  process_exit ();
 #endif
 
   

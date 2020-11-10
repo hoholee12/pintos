@@ -5,8 +5,8 @@
 #include "threads/thread.h"
 
 //make sure only one write happens until close(readers & writers problem 1)
-struct semaphore* writelock;
-struct semaphore* mutex;
+struct semaphore writelock;
+struct semaphore mutex;
 int readcount;
 
 static void syscall_handler (struct intr_frame *);
@@ -16,8 +16,8 @@ syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 
-  writelock = sema_malloc(1);
-  mutex = sema_malloc(1);
+  sema_init(&writelock, 1);
+  sema_init(&mutex, 1);
   readcount = 0;
 }
 
@@ -82,10 +82,10 @@ int read(int fd, void* buffer, unsigned size){
   unsigned count = size;
   int return_value = 0;
 
-  sema_down(mutex);
+  sema_down(&mutex);
   readcount++;
-  if(readcount == 1) sema_down(writelock);
-  sema_up(mutex);
+  if(readcount == 1) sema_down(&writelock);
+  sema_up(&mutex);
 
 
   if(fd == 0) {
@@ -106,10 +106,10 @@ int read(int fd, void* buffer, unsigned size){
 
   }
 
-  sema_down(mutex);
+  sema_down(&mutex);
   readcount--;
-  if(readcount == 0) sema_up(writelock);
-  sema_up(mutex);
+  if(readcount == 0) sema_up(&writelock);
+  sema_up(&mutex);
 
 
   return return_value;
@@ -118,7 +118,7 @@ int read(int fd, void* buffer, unsigned size){
 int write(int fd, const void* buffer, unsigned size){
   int return_value = 0;
   
-  sema_down(writelock);
+  sema_down(&writelock);
 
   //stdout
   //putbuf is in /lib/kernel/console.c
@@ -128,15 +128,10 @@ int write(int fd, const void* buffer, unsigned size){
   }
   else{
     //proj2
-    if(strcmp(thread_name(), buffer) == 0) file_deny_write(fdtofp(thread_current(), fd));
-    else{
-      file_allow_write(fdtofp(thread_current(), fd));
-    }
-
     return_value = file_write(fdtofp(thread_current(), fd), buffer, size);
   }
 
-  sema_up(writelock);
+  sema_up(&writelock);
   return return_value;
 }
 void seek(int fd, unsigned position){

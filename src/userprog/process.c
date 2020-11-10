@@ -49,7 +49,6 @@ process_execute (const char *file_name)
       if(newborn->tid == tid) break;
   }
   
-
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
 
@@ -64,6 +63,8 @@ process_execute (const char *file_name)
   if(cur->exit_code == -1) tid = -1;
   //wait <- exec
   else if(newborn->exit_code == -1) tid = -1;
+
+  
 
   return tid;
 }
@@ -129,8 +130,10 @@ process_wait (tid_t child_tid)
   of the calling process if and only if the calling process received pid as a return
   value from a successful call to exec.
   */
-  if(cur->tid != child_tid) return -1;
-
+  if(cur->tid != child_tid) {
+    cur->exit_code = -1;
+    return -1;
+  }
   /*
   2. The process that calls wait has already called wait on pid. That is, a process
   may wait for any given child at most once.
@@ -140,6 +143,7 @@ process_wait (tid_t child_tid)
     cur->rule2 = true;
   }
   else {
+    cur->exit_code = -1;
     return -1;
   }
 
@@ -284,18 +288,20 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
-  if (t->pagedir == NULL) 
+  if (t->pagedir == NULL) {
+    t->exit_code = -1;
     goto done;
+  }
   process_activate ();
 
   //pintos project 1 homework
   //parse file name
   //  file_name -> argv[0]
   char* save = 0;
-  char* argv[100] = {0};
+  char* argv[50] = {0};
   argv[0] = strtok_r(file_name, " ", &save);
   int argc = 1;
-  for(; argc < 100 && (argv[argc - 1] != NULL); argc++){
+  for(; argc < 50 && (argv[argc - 1] != NULL); argc++){
     argv[argc] = strtok_r(NULL, " ", &save);
   }
   argc -= 1;
@@ -402,7 +408,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   uint16_t* slot16;
   uint32_t* slot32;
 
-  void* argv_addrs[100];
+  void* argv_addrs[50];
   for(int i = argc - 1; i >= 0; i--){
     int size = strlen(argv[i]) + 1;
     *esp -= size;

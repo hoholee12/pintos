@@ -156,7 +156,7 @@ page_fault (struct intr_frame *f)
    //printf("hello i am panic NP: %d W: %d U: %d, addr: %x\n", not_present, write, user, fault_addr);
    //wait-killed -> child-bad does movl $0x20101234, %esp; int $0x30
    if(not_present) exit(-1);
-   //not on user address
+   //oom
    else if(user && is_kernel_vaddr(fault_addr)) exit(-1);
    //invalid pointer
    else if(fault_addr == NULL) exit(-1);

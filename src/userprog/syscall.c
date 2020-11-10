@@ -33,7 +33,7 @@ void exit (int status){
   struct thread* target = thread_current();
 
   //proj1
-  char tmp[100] = {0};
+  char tmp[16] = {0};
   strlcpy(tmp, target->name, strlen(target->name) + 1);
   nullify(tmp);
   int i = 0;

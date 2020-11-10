@@ -211,8 +211,13 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+  //proj2
   t->parent = thread_current();
-
+  /*if(t->tid > 100){
+    t->exit_code = -1;
+    return -1;
+  }
+*/
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
@@ -352,7 +357,7 @@ thread_exit (void)
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
-  process_exit ();
+  //process_exit ();
 #endif
 
   

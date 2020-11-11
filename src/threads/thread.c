@@ -215,13 +215,7 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-  //proj2
-  t->parent = thread_current();
-  sema_init(&t->waitstart, 0);
-  sema_init(&t->waitend, 0);
-  sema_init(&t->parent->childwaitstart, 0);
-  sema_init(&t->parent->childwaitend, 0);
-  sema_init(&t->lock_fd, 1);
+  
   /*if(t->tid > 100){
     t->exit_code = -1;
     return -1;
@@ -341,12 +335,8 @@ thread_exit (void)
   //close myself
   file_close(cur->myself);
 
-  //wait until child exits
-  sema_up(&cur->parent->childwaitstart);
-  sema_down(&cur->parent->childwaitend);
-  
   //use two sems to capture exit code in just right time from process_wait
-  
+  sema_up(&cur->waitstart);
   sema_down(&cur->waitend);
 
 
@@ -536,6 +526,14 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
+  //init must be done here instead of thread create to prevent lists clashing
+  t->parent = running_thread();
+  sema_init(&t->waitstart, 0);
+  sema_init(&t->waitend, 0);
+  sema_init(&t->parent->childwait, 0);
+  sema_init(&t->parent->childexit, 0);
+  sema_init(&t->lock_fd, 1);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);

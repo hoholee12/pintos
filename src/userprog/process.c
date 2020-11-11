@@ -41,39 +41,31 @@ process_execute (const char *file_name)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
 
-
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
 
-
+  
   //wait until child exits: for exec-missing
   struct thread* cur = thread_current();
 
-  sema_down(&cur->childwaitstart);
+
+  sema_down(&cur->childwait);
 
   //find newborn child
-  //one child per thread
   struct thread* newborn;
   struct list_elem *e;
   for (e = &thread_current()->allelem; e->next != NULL; e = list_next (e)){
       newborn = list_entry (e, struct thread, allelem);
+      //printf("cur->tid: %d, child_tid: %d\n", cur->tid, child_tid);
       if(newborn->tid == tid) break;
   }
-  
-  
   //exec
   if(cur->exit_code == -1) tid = -1;
   //wait <- exec
   else if(newborn->exit_code == -1) tid = -1;
+  else if(newborn->fail) tid = -1;
 
-  sema_up(&cur->childwaitend);
-
-
-  //check for any pending -1s.
-  for (e = &thread_current()->allelem; e->next != NULL; e = list_next (e)){
-      newborn = list_entry (e, struct thread, allelem);
-      if(newborn->exit_code == -1) return process_wait(newborn->tid);
-  }
+  //sema_up(&cur->childexit);
 
   return tid;
 }
@@ -133,12 +125,6 @@ process_wait (tid_t child_tid)
       if(cur->tid == child_tid) break;
   }
 
-  
-
-  //use two sems to capture exit code in just right time from process_wait
-
-  int exitcode = cur->exit_code;
-
   //rules
   /*
   1. pid does not refer to a direct child of the calling process. pid is a direct child
@@ -146,7 +132,8 @@ process_wait (tid_t child_tid)
   value from a successful call to exec.
   */
   if(cur->tid != child_tid) {
-    exitcode = -1;
+    cur->exit_code = -1;
+    return -1;
   }
   /*
   2. The process that calls wait has already called wait on pid. That is, a process
@@ -157,8 +144,14 @@ process_wait (tid_t child_tid)
     cur->rule2 = true;
   }
   else {
-    exitcode = -1;
+    cur->exit_code = -1;
+    return -1;
   }
+
+  //use two sems to capture exit code in just right time from thread_exit
+  sema_down(&cur->waitstart);
+
+  int exitcode = cur->exit_code;
 
   //release exit
   sema_up(&cur->waitend);
@@ -470,9 +463,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   if(success){
     file_deny_write(file);
-    thread_current()->myself = file;
+    t->myself = file;
   }
-  else file_close (file);
+  else{
+    file_close (file);
+    t->fail = true;
+  }
+  //capture from process_exec
+  sema_up(&t->parent->childwait);
+  //sema_down(&t->parent->childexit);
 
   return success;
 }

@@ -81,12 +81,12 @@ int read(int fd, void* buffer, unsigned size){
   uint8_t* buf = buffer;
   unsigned count = size;
   int return_value = 0;
-
+/*
   sema_down(&mutex);
   readcount++;
   if(readcount == 1) sema_down(&writelock);
   sema_up(&mutex);
-
+*/
 
   if(fd == 0) {
     //no getbuf()
@@ -105,12 +105,12 @@ int read(int fd, void* buffer, unsigned size){
 
 
   }
-
+/*
   sema_down(&mutex);
   readcount--;
   if(readcount == 0) sema_up(&writelock);
   sema_up(&mutex);
-
+*/
 
   return return_value;
 
@@ -118,7 +118,7 @@ int read(int fd, void* buffer, unsigned size){
 int write(int fd, const void* buffer, unsigned size){
   int return_value = 0;
   
-  sema_down(&writelock);
+  //sema_down(&writelock);
 
   //stdout
   //putbuf is in /lib/kernel/console.c
@@ -131,7 +131,7 @@ int write(int fd, const void* buffer, unsigned size){
     return_value = file_write(fdtofp(thread_current(), fd), buffer, size);
   }
 
-  sema_up(&writelock);
+  //sema_up(&writelock);
   return return_value;
 }
 void seek(int fd, unsigned position){

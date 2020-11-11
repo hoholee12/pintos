@@ -100,21 +100,20 @@ struct thread
     
 #endif
     
-    //process_wait() <- process_exec()
+    //process_wait() <- thread_exit()
     struct semaphore waitstart;
     struct semaphore waitend;
 
-    //process_exec() <- thread_exit(): exit code
+    //process_exec() <- load(): exit code
     struct thread* parent;
-    struct semaphore childwaitstart;
-    struct semaphore childwaitend;
+    struct semaphore childwait;
+    struct semaphore childexit;
 
     //this is for rule 2
     bool rule2;
     
     int exit_code;
     
-
      //proj2
     //It is better not to set an arbitrary limit. You may impose a limit of 128 open
     //files per process, if necessary.

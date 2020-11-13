@@ -106,6 +106,7 @@ struct thread
 
     //process_exec() <- load(): exit code
     struct thread* parent;
+    struct thread* child;
     struct semaphore childwait;
     struct semaphore childexit;
 

@@ -51,14 +51,10 @@ process_execute (const char *file_name)
 
   sema_down(&cur->childwait);
 
-  //find newborn child
-  struct thread* newborn;
-  struct list_elem *e;
-  for (e = &thread_current()->allelem; e->next != NULL; e = list_next (e)){
-      newborn = list_entry (e, struct thread, allelem);
-      //printf("cur->tid: %d, child_tid: %d\n", cur->tid, child_tid);
-      if(newborn->tid == tid) break;
-  }
+  //get newborn child
+  //speed hack! child thread inserts itself
+  struct thread* newborn = cur->child;
+
   //exec
   if(cur->exit_code == -1) tid = -1;
   //wait <- exec
@@ -119,6 +115,7 @@ process_wait (tid_t child_tid)
   struct thread* cur;
   struct list_elem *e;
 
+  //find manually
   for (e = &thread_current()->allelem; e->next != NULL; e = list_next (e)){
       cur = list_entry (e, struct thread, allelem);
       //printf("cur->tid: %d, child_tid: %d\n", cur->tid, child_tid);
@@ -469,6 +466,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
     file_close (file);
     t->fail = true;
   }
+
+  t->parent->child = thread_current();
+
   //capture from process_exec
   sema_up(&t->parent->childwait);
   //sema_down(&t->parent->childexit);

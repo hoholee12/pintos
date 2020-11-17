@@ -160,7 +160,26 @@ process_wait (tid_t child_tid)
 void
 process_exit (void)
 {
-  struct thread *cur = thread_current ();
+  struct thread* cur = thread_current();
+  //printf("in thread exit: thread: %d exit: %d\n", cur->tid, cur->exit_code);
+  //release
+
+  //oom fix
+  //close all opened files
+  for(int i = 2; i < 128; i++){
+    if(cur->openfds[i]){
+      //syscall close()
+      close(i);
+    }
+  }
+
+  //close myself
+  file_close(cur->myself);
+
+  //use two sems to capture exit code in just right time from process_wait
+  sema_up(&cur->waitstart);
+  sema_down(&cur->waitend);
+
   uint32_t *pd;
 
   /* Destroy the current process's page directory and switch back

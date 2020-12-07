@@ -234,6 +234,10 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  //proj3 priority
+  if(!list_empty(&ready_list))
+    if(priority > thread_get_priority())
+      thread_yield();
 
   return tid;
 }
@@ -254,6 +258,11 @@ thread_block (void)
   schedule ();
 }
 
+
+bool compare_prio(const struct list_elem* left, const struct list_elem* right, void* aux){
+  return list_entry(left, struct thread, elem)->priority > list_entry(right, struct thread, elem)->priority;
+}
+
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -271,10 +280,14 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+
+  //proj3 priority
+  list_insert_ordered(&ready_list, &t->elem, compare_prio, NULL);
+  //list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
+
 
 /* Returns the name of the running thread. */
 const char *
@@ -343,8 +356,11 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
+
+  //proj3 priority
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list, &cur->elem, compare_prio, NULL);
+    //list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -371,7 +387,14 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  //proj3 priority
+  int old_prio = thread_current()->priority;
+
   thread_current ()->priority = new_priority;
+
+  if(new_priority < old_prio){
+    thread_yield();
+  }
 }
 
 /* Returns the current thread's priority. */

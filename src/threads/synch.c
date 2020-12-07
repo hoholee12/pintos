@@ -57,6 +57,9 @@ sema_init (struct semaphore *sema, unsigned value)
    interrupt handler.  This function may be called with
    interrupts disabled, but if it sleeps then the next scheduled
    thread will probably turn interrupts back on. */
+
+bool compare_prio(const struct list_elem* left, const struct list_elem* right, void* aux);
+
 void
 sema_down (struct semaphore *sema) 
 {
@@ -65,10 +68,17 @@ sema_down (struct semaphore *sema)
   ASSERT (sema != NULL);
   ASSERT (!intr_context ());
 
+  //proj3
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+      if(thread_mlfqs){
+        list_push_back (&sema->waiters, &thread_current ()->elem);
+      }
+      else{
+        list_insert_ordered(&sema->waiters, &thread_current()->elem, compare_prio, NULL);
+
+      }
       thread_block ();
     }
   sema->value--;
@@ -110,13 +120,39 @@ sema_up (struct semaphore *sema)
 {
   enum intr_level old_level;
 
+  //proj3
+  struct thread *t, *t_max;
+  struct list_elem *e, *e_max;
+
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
+  if(thread_mlfqs){
+    if (!list_empty (&sema->waiters)) 
+      thread_unblock (list_entry (list_pop_front (&sema->waiters),
+                                  struct thread, elem));
+    sema->value++;
+    intr_set_level (old_level);
+    return;
+  }
+
   sema->value++;
+  if(!list_empty(&sema->waiters)){
+    e_max = list_begin(&sema->waiters);
+    t_max = list_entry(e_max, struct thread, elem);
+
+    for(e = list_begin(&sema->waiters); e != list_end(&sema->waiters); e = list_next(e)){
+      t = list_entry(e, struct thread, elem);
+      if(t->priority > t_max->priority){
+        t_max = t;
+        e_max = e;
+      }
+    }
+
+    list_remove(e_max);
+    thread_unblock(t_max);
+  }
+
   intr_set_level (old_level);
 }
 

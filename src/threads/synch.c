@@ -32,6 +32,9 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+//proj3 priority
+bool compare_priority(const struct list_elem* a, const struct list_elem* b, void* aux);
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -57,9 +60,6 @@ sema_init (struct semaphore *sema, unsigned value)
    interrupt handler.  This function may be called with
    interrupts disabled, but if it sleeps then the next scheduled
    thread will probably turn interrupts back on. */
-
-bool compare_prio(const struct list_elem* left, const struct list_elem* right, void* aux);
-
 void
 sema_down (struct semaphore *sema) 
 {
@@ -68,16 +68,16 @@ sema_down (struct semaphore *sema)
   ASSERT (sema != NULL);
   ASSERT (!intr_context ());
 
-  //proj3
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
+      //proj3
       if(thread_mlfqs){
         list_push_back (&sema->waiters, &thread_current ()->elem);
       }
       else{
-        list_insert_ordered(&sema->waiters, &thread_current()->elem, compare_prio, NULL);
-
+        //for priority
+        list_insert_ordered(&sema->waiters, &thread_current()->elem, compare_priority, NULL);
       }
       thread_block ();
     }
@@ -120,40 +120,41 @@ sema_up (struct semaphore *sema)
 {
   enum intr_level old_level;
 
-  //proj3
-  struct thread *t, *t_max;
-  struct list_elem *e, *e_max;
+  struct thread* t_thread, * max_thread;
+  struct list_elem* t_elem, * max_elem;
 
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
+
+  sema->value++;
+
   if(thread_mlfqs){
     if (!list_empty (&sema->waiters)) 
       thread_unblock (list_entry (list_pop_front (&sema->waiters),
                                   struct thread, elem));
-    sema->value++;
-    intr_set_level (old_level);
-    return;
   }
+  else{
+    if(!list_empty(&sema->waiters)){
+      max_elem = list_begin(&sema->waiters);
+      max_thread = list_entry(max_elem, struct thread, elem);
 
-  sema->value++;
-  if(!list_empty(&sema->waiters)){
-    e_max = list_begin(&sema->waiters);
-    t_max = list_entry(e_max, struct thread, elem);
-
-    for(e = list_begin(&sema->waiters); e != list_end(&sema->waiters); e = list_next(e)){
-      t = list_entry(e, struct thread, elem);
-      if(t->priority > t_max->priority){
-        t_max = t;
-        e_max = e;
+      for(t_elem = list_begin(&sema->waiters); t_elem != list_end(&sema->waiters); t_elem = list_next(t_elem)){
+        t_thread = list_entry(t_elem, struct thread, elem);
+        if(t_thread->priority > max_thread->priority){
+          max_thread = t_thread;
+          max_elem = t_elem;
+        }
       }
+      list_remove(max_elem);
+      thread_unblock(max_thread);
+
     }
 
-    list_remove(e_max);
-    thread_unblock(t_max);
   }
-
-  intr_set_level (old_level);
+  
+  intr_set_level (old_level); 
+  return;
 }
 
 static void sema_test_helper (void *sema_);

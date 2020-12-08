@@ -24,6 +24,10 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+//proj3
+static struct list sleep_list;
+static int64_t next_tick_to_wake = INT64_MAX;
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -58,6 +62,13 @@ static unsigned thread_ticks;   /* # of timer ticks since last yield. */
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 bool thread_mlfqs;
+
+//proj3
+#ifdef USERPROG
+bool thread_prior_aging;
+#endif
+
+
 
 static void kernel_thread (thread_func *, void *aux);
 
@@ -131,6 +142,48 @@ thread_init (void)
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
   
+
+  //proj3
+  list_init(&sleep_list);
+}
+
+//proj3
+//timer sleep
+void thread_sleep(int64_t ticks){
+  struct thread* cur = thread_current();
+  enum intr_level old_level;
+  old_level = intr_disable();
+
+  cur->wake_ticks = ticks;  //set waketicks start+ticks
+  if(next_tick_to_wake > cur->wake_ticks) next_tick_to_wake = cur->wake_ticks; //least waketick for quick check
+  list_push_back(&sleep_list, &cur->elem);  //push into sleep list
+  thread_block(); //set status to sleep
+
+  intr_set_level(old_level);
+}
+
+//timer interrupt
+void thread_wake(int64_t ticks){
+  struct list_elem* e;
+  struct thread* t;
+
+  if(next_tick_to_wake > ticks) return; //not there yet
+
+  //got next tick to wake. time for a new next tick!
+  next_tick_to_wake = INT64_MAX;
+
+  //get rid of old wake tick
+  for(e = list_begin(&sleep_list); e != list_end(&sleep_list);){
+    t = list_entry(e, struct thread, elem);
+    if(ticks >= t->wake_ticks){
+      e = list_remove(&t->elem);
+      thread_unblock(t);
+    }
+    else{
+      e = list_next(e);
+      if(next_tick_to_wake > t->wake_ticks) next_tick_to_wake = t->wake_ticks;
+    }
+  }
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -234,12 +287,13 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
-  //proj3 priority
-  if(!list_empty(&ready_list))
-    if(priority > thread_get_priority())
-      thread_yield();
 
   return tid;
+}
+
+///proj3 priority
+bool compare_priority(const struct list_elem* a, const struct list_elem* b, void* aux){
+  return list_entry(a, struct thread, elem)->priority > list_entry(b, struct thread, elem)->priority;
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -256,11 +310,6 @@ thread_block (void)
 
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
-}
-
-
-bool compare_prio(const struct list_elem* left, const struct list_elem* right, void* aux){
-  return list_entry(left, struct thread, elem)->priority > list_entry(right, struct thread, elem)->priority;
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
@@ -282,12 +331,12 @@ thread_unblock (struct thread *t)
   ASSERT (t->status == THREAD_BLOCKED);
 
   //proj3 priority
-  list_insert_ordered(&ready_list, &t->elem, compare_prio, NULL);
   //list_push_back (&ready_list, &t->elem);
+  list_insert_ordered(&ready_list, &t->elem, compare_priority, NULL);
+
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
-
 
 /* Returns the name of the running thread. */
 const char *
@@ -359,8 +408,9 @@ thread_yield (void)
 
   //proj3 priority
   if (cur != idle_thread) 
-    list_insert_ordered(&ready_list, &cur->elem, compare_prio, NULL);
     //list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list, &cur->elem, compare_priority, NULL);
+
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -387,13 +437,16 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  //proj3 priority
-  int old_prio = thread_current()->priority;
+  struct thread* cur = thread_current();
+  if(thread_mlfqs){}
+  else{
+    cur->priority = new_priority;
 
-  thread_current ()->priority = new_priority;
-
-  if(new_priority < old_prio){
-    thread_yield();
+    //proj3 priority
+    //yield if immediate thread priority is higher than running thread
+    if(!list_empty(&ready_list) && cur->priority < list_entry(list_front(&ready_list), struct thread, elem)->priority){
+      thread_yield();
+    }
   }
 }
 

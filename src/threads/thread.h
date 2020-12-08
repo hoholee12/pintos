@@ -5,6 +5,12 @@
 #include <list.h>
 #include <stdint.h>
 
+//proj3
+#include"threads/synch.h"
+#ifdef USERPROG
+extern bool thread_prior_aging;
+#endif
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -126,11 +132,20 @@ struct thread
 
     bool fail;
 
+    //proj3
+    int64_t wake_ticks;
+
     
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
 
+
+//proj3
+void thread_sleep(int64_t ticks);
+void thread_wake(int64_t ticks);
+int64_t get_next_tick_to_wake();
+void set_next_tick_to_wake(int64_t ticks);
 
   //proj2
 int insertfd(struct thread* cur, struct file* fp);
